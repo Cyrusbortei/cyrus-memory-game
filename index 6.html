@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory Flip | Cyrus Tech</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 15px;
+      color: white;
+    }
+.game {
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 20px;
+      backdrop-filter: blur(15px);
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+    h1 { font-size: 24px; margin-bottom: 5px; }
+.brand { font-size: 11px; opacity: 0.8; margin-bottom: 15px; }
+.stats {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 15px;
+      background: rgba(0,0,0,0.2);
+      padding: 12px;
+      border-radius: 12px;
+    }
+.stat { text-align: center; }
+.stat-label { font-size: 10px; opacity: 0.8; margin-bottom: 4px; }
+.stat-value { font-size: 20px; font-weight: bold; }
+.difficulty {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+.diff-btn {
+      flex: 1;
+      padding: 10px 5px;
+      background: rgba(0,0,0,0.3);
+      border: 2px solid transparent;
+      border-radius: 10px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 11px;
+    }
+.diff-btn.active {
+      background: #00ff88;
+      color: #1c1e21;
+      border-color: white;
+    }
+.board {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 15px;
+      perspective: 1000px;
+    }
+.board.easy { grid-template-columns: repeat(4, 1fr); }
+.board.medium { grid-template-columns: repeat(4, 1fr); }
+.board.hard { grid-template-columns: repeat(5, 1fr); }
+.card {
+      aspect-ratio: 1;
+      position: relative;
+      transform-style: preserve-3d;
+      cursor: pointer;
+      transition: transform 0.5s;
+    }
+.card.flipped { transform: rotateY(180deg); }
+.card.matched { cursor: default; }
+.card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+.card-front {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+.card-front::after { content: '?'; font-size: 28px; font-weight: bold; color: white; }
+.card-back {
+      background: white;
+      transform: rotateY(180deg);
+      border: 2px solid #00ff88;
+    }
+.card.matched .card-back {
+      background: #00ff88;
+      border-color: #00ff88;
+      animation: pulse 0.5s;
+    }
+    @keyframes pulse {
+      0% { transform: rotateY(180deg) scale(1); }
+      50% { transform: rotateY(180deg) scale(1.1); }
+      100% { transform: rotateY(180deg) scale(1); }
+    }
+.btn {
+      background: #00ff88;
+      color: #1c1e21;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+.btn-secondary {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+.result {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      min-height: 20px;
+      font-weight: bold;
+    }
+.guide {
+      background: rgba(0,0,0,0.2);
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      text-align: left;
+      line-height: 1.5;
+    }
+.guide h4 { color: #ffd32a; margin-bottom: 6px; font-size: 12px; }
+.win-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+    }
+.win-screen.show { display: flex; }
+.stars { font-size: 50px; margin-bottom: 15px; }
+.win-title { font-size: 28px; color: #ffd32a; margin-bottom: 10px; font-weight: bold; }
+.win-text { font-size: 14px; margin-bottom: 20px; }
+.footer { margin-top: 15px; font-size: 10px; opacity: 0.7; }
+.win { color: #00ff88; }
+.lose { color: #ff4757; }
+  </style>
+</head>
+<body>
+  <div class="game">
+    <h1>MEMORY FLIP</h1>
+    <div class="brand">CYRUS TECH</div>
+
+    <div class="difficulty">
+      <button class="diff-btn active" onclick="setDifficulty('easy')">EASY 4x4</button>
+      <button class="diff-btn" onclick="setDifficulty('medium')">MEDIUM 4x4</button>
+      <button class="diff-btn" onclick="setDifficulty('hard')">HARD 5x4</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">MOVES</div>
+        <div class="stat-value" id="moves">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">TIME</div>
+        <div class="stat-value" id="timer">0:00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">MATCHES</div>
+        <div class="stat-value" id="matches">0/8</div>
+      </div>
+    </div>
+
+    <div class="board easy" id="board"></div>
+
+    <div class="result" id="result">Match all pairs to win!</div>
+
+    <button class="btn" onclick="newGame()">New Game</button>
+    <button class="btn btn-secondary" onclick="resetBest()">Reset Best Score</button>
+
+    <div class="guide">
+      <h4>HOW TO PLAY:</h4>
+      1. Tap a card to flip it over<br>
+      2. Tap a second card to find its match<br>
+      3. If they match = they stay open<br>
+      4. If not = they flip back after 1 second<br>
+      5. Match all pairs in fewest moves + fastest time!
+    </div>
+
+    <div class="footer">
+      Built by Cyrus Bortei | 60 GHS Brain Game
+    </div>
+  </div>
+
+  <div class="win-screen" id="winScreen">
+    <div class="stars" id="stars">⭐</div>
+    <div class="win-title">YOU WIN!</div>
+    <div class="win-text" id="winText">Completed in 15 moves, 45 seconds</div>
+    <button class="champion-btn" onclick="closeWin()">Play Again</button>
+  </div>
+
+  <script>
+    const emojis = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🦄'];
+    let cards = [];
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let timer = 0;
+    let timerInterval = null;
+    let canFlip = true;
+    let difficulty = 'easy';
+    let totalPairs = 8;
+    let bestScore = JSON.parse(localStorage.getItem('memoryBest') || '{}');
+
+    function setDifficulty(level) {
+      difficulty = level;
+      document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      newGame();
+    }
+
+    function getDifficultySettings() {
+      if (difficulty === 'easy') return { pairs: 8, cols: 4 };
+      if (difficulty === 'medium') return { pairs: 8, cols: 4 };
+      if (difficulty === 'hard') return { pairs: 10, cols: 5 };
+    }
+
+    function newGame() {
+      const settings = getDifficultySettings();
+      totalPairs = settings.pairs;
+      
+      // Create and shuffle cards
+      const gameEmojis = emojis.slice(0, totalPairs);
+      cards = [...gameEmojis, ...gameEmojis].sort(() => Math.random() - 0.5);
+      
+      // Reset stats
+      matchedPairs = 0;
+      moves = 0;
+      timer = 0;
+      flippedCards = [];
+      canFlip = true;
+      
+      // Stop timer
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+      
+      // Update UI
+      document.getElementById('moves').innerText = 0;
+      document.getElementById('timer').innerText = '0:00';
+      document.getElementById('matches').innerText = `0/${totalPairs}`;
+      document.getElementById('result').innerText = 'Match all pairs to win!';
+      document.getElementById('board').className = `board ${difficulty}`;
+      
+      // Draw cards
+      drawBoard();
+    }
+
+    function drawBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      
+      cards.forEach((emoji, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.index = index;
+        card.dataset.emoji = emoji;
+        card.innerHTML = `
+          <div class="card-face card-front"></div>
+          <div class="card-face card-back">${emoji}</div>
+        `;
+        card.onclick = () => flipCard(index);
+        board.appendChild(card);
+      });
+    }
+
+    function flipCard(index) {
+      if (!canFlip) return;
+      if (flippedCards.length >= 2) return;
+      if (flippedCards.includes(index)) return;
+      
+      const card = document.querySelectorAll('.card')[index];
+      if (card.classList.contains('matched')) return;
+      
+      // Start timer on first flip
+      if (!timerInterval) startTimer();
+      
+      // Flip card
+      card.classList.add('flipped');
+      flippedCards.push(index);
+      
+      // If 2 cards flipped, check for match
+      if (flippedCards.length === 2) {
+        moves++;
+        document.getElementById('moves').innerText = moves;
+        canFlip = false;
+        
+        const [first, second] = flippedCards;
+        const firstEmoji = cards[first];
+        const secondEmoji = cards[second];
+        
+        if (firstEmoji === secondEmoji) {
+          // MATCH!
+          setTimeout(() => {
+            document.querySelectorAll('.card')[first].classList.add('matched');
+            document.querySelectorAll('.card')[second].classList.add('matched');
+            matchedPairs++;
+            document.getElementById('matches').innerText = `${matchedPairs}/${totalPairs}`;
+            flippedCards = [];
+            canFlip = true;
+            
+            // Check win
+            if (matchedPairs === totalPairs) winGame();
+          }, 500);
+        } else {
+          // NO MATCH - flip back
+          setTimeout(() => {
+            document.querySelectorAll('.card')[first].classList.remove('flipped');
+            document.querySelectorAll('.card')[second].classList.remove('flipped');
+            flippedCards = [];
+            canFlip = true;
+          }, 1000);
+        }
+      }
+    }
+
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        timer++;
+        const minutes = Math.floor(timer / 60);
+        const seconds = timer % 60;
+        document.getElementById('timer').innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    function winGame() {
+      clearInterval(timerInterval);
+      
+      // Calculate stars
+      let stars = 3;
+      if (moves > totalPairs * 2.5) stars = 2;
+      if (moves > totalPairs * 3.5) stars = 1;
+      
+      // Save best score
+      const scoreKey = difficulty;
+      const currentScore = { moves, time: timer };
+      const best = bestScore[scoreKey];
+      
+      if (!best || moves < best.moves || (moves === best.moves && timer < best.time)) {
+        bestScore[scoreKey] = currentScore;
+        localStorage.setItem('memoryBest', JSON.stringify(bestScore));
+      }
+      
+      // Show win screen
+      const starText = '⭐'.repeat(stars) + '☆'.repeat(3-stars);
+      document.getElementById('stars').innerText = starText;
+      document.getElementById('winText').innerText = 
+        `Completed in ${moves} moves, ${formatTime(timer)}`;
+      document.getElementById('winScreen').classList.add('show');
+      
+      document.getElementById('result').innerHTML = `<span class="win">Perfect! You won in ${moves} moves</span>`;
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function closeWin() {
+      document.getElementById('winScreen').classList.remove('show');
+      newGame();
+    }
+
+    function resetBest() {
+      if (confirm('Reset all best scores?')) {
+        localStorage.removeItem('memoryBest');
+        bestScore = {};
+        alert('Best scores reset!');
+      }
+    }
+
+    // Start with easy
+    newGame();
+  </script>
+</body>
+</html>
